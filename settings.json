@@ -1,0 +1,16 @@
+[{
+  "downloadedDictionaryFile":"cbmnkbokgm-5146248136-e98675.txt",
+  "languageOrderInDictionaryFile": [
+    {
+      "identifier":"de",
+      "completeName":"German",
+      "icon":"icons/icon.png"
+    },
+    {
+      "identifier":"en",
+      "completeName":"English",
+      "icon":"icons/icon.png"
+    }
+  ],
+  "supportedDirection":"both"
+}]

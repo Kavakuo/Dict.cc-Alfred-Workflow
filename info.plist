@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>bundleid</key>
+	<string>de.nieting.DictCC</string>
+	<key>connections</key>
+	<dict/>
+	<key>createdby</key>
+	<string>Philipp Nieting</string>
+	<key>description</key>
+	<string>Provides offline translations with dict.cc</string>
+	<key>disabled</key>
+	<false/>
+	<key>name</key>
+	<string>Dict.cc</string>
+	<key>objects</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>dictcc</string>
+				<key>queuedelaycustom</key>
+				<integer>3</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>2</integer>
+				<key>runningsubtext</key>
+				<string>Please wait...</string>
+				<key>script</key>
+				<string>python workflowScript.py "{query}"</string>
+				<key>title</key>
+				<string>Translate with Dict.cc</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>698B24DE-3A01-4E4F-AE9E-C62C5875EDD5</string>
+			<key>version</key>
+			<integer>0</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string>https://github.com/Kavakuo/Dict.cc-Alfred-Workflow.git</string>
+	<key>uidata</key>
+	<dict>
+		<key>698B24DE-3A01-4E4F-AE9E-C62C5875EDD5</key>
+		<dict>
+			<key>ypos</key>
+			<real>10</real>
+		</dict>
+	</dict>
+	<key>webaddress</key>
+	<string>https://github.com/Kavakuo/Dict.cc-Alfred-Workflow.git</string>
+</dict>
+</plist>

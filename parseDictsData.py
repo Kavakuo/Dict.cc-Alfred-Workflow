@@ -1,5 +1,36 @@
+# Just run this script with Alfred.
+# Enter dictcc wf:executeParsing in Alfred
+#
+# Be sure that the dictccSettings.json file is configured correctly!
+
+
+
+# The MIT License (MIT)
+#
+# Copyright (c) [2016] [Philipp Nieting]
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+
 import ujson
-import re, os, sys, time
+import re, os, sys
 
 DEBUG = False
 
@@ -11,12 +42,17 @@ def cli_progress_test(percent, bar_length=20):
 
 
 def main():
-    dirName = os.path.dirname(__file__)
+    if len(sys.argv) == 1:
+        print "Workflow Settings path is missing. Run this script with Alfred with"
+        print "dictcc wf:executeParsing"
+        sys.exit()
+
+    dirName = sys.argv[1]
     dictionaryDir = os.path.join(dirName, "Dictionaries")
     if os.path.exists(dictionaryDir) is False:
         os.mkdir(dictionaryDir)
 
-    settings = ujson.loads(open(os.path.join(dirName, "settings.json")).read())
+    settings = ujson.loads(open(os.path.join(dirName, "dictccSettings.json")).read())
 
     for setting in settings:
         langOrder = setting["languageOrderInDictionaryFile"]
@@ -50,7 +86,9 @@ def main():
         if os.path.exists(path) is False:
             path = os.path.join(dirName, path)
             if os.path.exists(path) is False:
-                print "Downloaded dictionary file for %s doesn't exist. Configure settings.json correctly." % " ".join(identifiersUnique)
+                print "Downloaded dictionary file for %s doesn't exist. Configure dictccSettings.json correctly." % " ".join(identifiersUnique)
+                print "Download dictionary files from http://www1.dict.cc/translation_file_request.php"
+                print "Get help here https://github.com/Kavakuo/Dict.cc-Alfred-Workflow#dictcc-alfred-workflow"
                 continue
 
         if both:
@@ -119,17 +157,15 @@ def main():
         cli_progress_test(1)
         print " "
 
-        if firstLangOnly or both:
-            string = ujson.dumps(de_en)
-            f = open(firstLangFile, "w")
-            f.write(string)
-            f.close()
+        string = ujson.dumps(de_en)
+        f = open(firstLangFile, "w")
+        f.write(string)
+        f.close()
 
-        if firstLangOnly is False or both:
-            string = ujson.dumps(en_de)
-            f = open(seconLangFile, "w")
-            f.write(string)
-            f.close()
+        string = ujson.dumps(en_de)
+        f = open(seconLangFile, "w")
+        f.write(string)
+        f.close()
 
         if both:
             print "Dictionary files for %s were generated" % modeName

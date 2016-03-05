@@ -10,8 +10,8 @@ This Alfred workflow uses the offline translation databases provided by dict.cc.
 
 
 1. Install the workflow.
-2. Download the language databases you want from.
-	http://www1.dict.cc/translation_file_request.php. Only download **"tab-delimited"** versions
+2. Download the language databases you want from
+	http://www1.dict.cc/translation_file_request.php. Only download **"tab-delimited"** versions.
 3. Open the workflow folder. Just type `dictcc wf:openworkflow` into Alfred to open this folder or perform a right-click on the workflow in the Alfred settings and select `Reveal in Finder`.
 4. Move the downloaded language database file into this folder.
 5. Open the `settings.json` file and configure it. See below for Specifiactions. You can open this file by typing  

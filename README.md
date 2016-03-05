@@ -6,7 +6,7 @@ This Alfred workflow uses the offline translation databases provided by dict.cc.
 ![Screenshot](http://i.imgur.com/gPe3zAz.jpg)
 
 
-##Installation
+#Installation
 
 
 1. Install the workflow

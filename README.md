@@ -3,11 +3,22 @@ Dict.cc Alfred Workflow
 
 This Alfred workflow uses the offline translation databases provided by dict.cc. The configuration is a little bit work, but it is easy to manage.
 
-![Screenshot](http://i.imgur.com/gPe3zAz.jpg)
+####Features:
+
+* Offline translation with dictionaries powered by dict.cc
+* Highly flexible, integrate as many language packs as you want
+* Easy to setup
+
+####A little bit hidden features:
+
+* Copy the translated word to the clipboard by actioning it
+* Copy the word in the origin language to the clipboard by actioning it with `cmd` as modifier
+
+
+![Screenshot](http://i.imgur.com/7kwcDCu.png)
 
 
 #Installation
-
 
 1. Install the workflow.
 2. Download the language databases you want from
@@ -38,7 +49,7 @@ This Alfred workflow uses the offline translation databases provided by dict.cc.
 	}]
 
 	
-* `"downloadedDictionaryFile"`  Key:
+* `"downloadedDictionaryFile"` Key:
 	* The file path to the downloaded file from dict.cc (absolute or relative path). If the file is in the same folder as the `dictccSettings.json` file, just assign the file name to this key.
 * `"languageOrderInDictionaryFile"` Key:
 	* The first entry refers to the language, which is on the left side inside the downloaded dictionary file.

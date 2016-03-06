@@ -27,10 +27,16 @@
 
 
 import workflow, sys
-import parseDictsData, ujson, subprocess, os, re
+import parseDictsData, ujson, subprocess, os, re, shutil
 
 
-__version__ = '1.1'
+__version__ = '1.2'
+
+def objToJsonString(obj):
+    stri = ujson.dumps(obj)
+    return stri.replace("\"", "\\\"")
+
+openDocumentationArg = objToJsonString({"action":"open", "args":["open", "https://github.com/Kavakuo/Dict.cc-Alfred-Workflow#dictcc-alfred-workflow"]})
 
 def createSettingsFile():
     workflowDataPath = os.getenv("alfred_workflow_data")
@@ -42,8 +48,16 @@ def createSettingsFile():
 
     return settingsPath
 
+
+
+
+
+
+
+
 def main(wsf):
     continuing = True
+
 
     if wf.update_available:
         # Download new version and tell Alfred to install it
@@ -56,6 +70,21 @@ def main(wsf):
 
     workflowDataPath = os.getenv("alfred_workflow_data")
     settingsPath = createSettingsFile()
+    databasePath = os.path.join(workflowDataPath, "Dictionaries.sqlite")
+
+    if wf.first_run and os.path.exists(databasePath) is False:
+        wf.add_item(u"Unfortunately you have to download the dictionary files again.",u"Settings file remains and should still work.", icon=workflow.ICON_WARNING)
+        wf.add_item(u"Open documentation", icon=workflow.ICON_INFO, valid=True, arg=openDocumentationArg)
+        if os.path.exists(os.path.join(workflowDataPath, "Dictionaries")):
+            shutil.rmtree(os.path.join(workflowDataPath, "Dictionaries"))
+        wf.send_feedback()
+        continuing = False
+
+    if os.path.exists(databasePath) is False:
+        f = open(databasePath, 'w')
+        f.close()
+
+    parseDictsData.connectToDatabase(databasePath)
 
     query = None
     try:
@@ -64,7 +93,6 @@ def main(wsf):
         wf.add_item(u"You need to configure this workflow.", u"Action this item to start the configuration.", autocomplete=u" wf:openSettings", icon=workflow.ICON_WARNING)
         wf.send_feedback()
         continuing = False
-        #return
 
     if len(wf.args):
         query = wf.args[0]
@@ -88,7 +116,7 @@ def main(wsf):
         wf.add_item(u"Open dictccSettings.json", autocomplete=u" wf:openSettings", icon=settingsPath, icontype=u"fileicon", arg=settingsPath, type=u'file')
         wf.add_item(u"Open settings folder", autocomplete=u" wf:folderSettings", icontype=u"filetype", icon=u"public.folder")
         wf.add_item(u"Run parseDictsData.py", autocomplete=u" wf:executeParsing", icon=workflow.ICON_SETTINGS)
-        wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=u"test")
+        wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=openDocumentationArg)
         wf.add_item(u"Search for updates", icon=workflow.ICON_SYNC, autocomplete=u" wf:update")
         wf.send_feedback()
 
@@ -108,6 +136,9 @@ def main(wsf):
             langOrder[0]["translationName"] = langOrder[0]["completeName"] + u" -> " + langOrder[1]["completeName"]
             langOrder[1]["translationName"] = langOrder[1]["completeName"] + u" -> " + langOrder[0]["completeName"]
 
+            langOrder[0]["tableName"] = identifiers[0] + "-" + identifiers[1]
+            langOrder[1]["tableName"] = identifiers[0] + "-" + identifiers[1]
+
             direction = a["supportedDirection"]
 
             validModeIdentifier = False
@@ -125,7 +156,9 @@ def main(wsf):
                 shouldSearch = True
                 items = []
                 currentMode = langOrder[identifiersUnique.index(langModeId)]
-                if os.path.exists(os.path.join(workflowDataPath, "Dictionaries/"+currentMode["uniqueIdentifier"]+".json")) is False:
+
+                parseDictsData.get_table_object(currentMode["tableName"])
+                if parseDictsData.tableExists is False:
                     shouldSearch = False
                     items.append(currentMode)
                 break
@@ -153,8 +186,8 @@ def main(wsf):
             for a in items:
                 title = a["translationName"]
                 identifier = a["uniqueIdentifier"]
-                path = os.path.join(workflowDataPath, "Dictionaries/"+identifier+".json")
-                if os.path.exists(path) is False:
+                parseDictsData.get_table_object(a["tableName"])
+                if parseDictsData.tableExists is False:
                     helpIdentifiers.append(identifier)
                     presentHelp = True
                 else:
@@ -162,9 +195,10 @@ def main(wsf):
 
             if presentHelp:
                 for identifier in helpIdentifiers:
-                    wf.add_item(u"Dictionary file for " + identifier + u" is missing", u"You need to run parseDictsData.py", icon=workflow.ICON_WARNING)
-                wf.add_item(u"Execute parseDictsData.py to generate the files", autocomplete=u" wf:executeParsing", icon=workflow.ICON_SETTINGS)
-                wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=u"test")
+                    wf.add_item(u"Dictionary for " + identifier + u" is missing in database", u"You need to execute parseDictsData.py", icon=workflow.ICON_WARNING)
+                wf.add_item(u"Execute parseDictsData.py to generate the database", autocomplete=u" wf:executeParsing", icon=workflow.ICON_SETTINGS)
+                wf.add_item(u"Open settings folder", autocomplete=u" wf:folderSettings", icontype=u"filetype", icon=u"public.folder")
+                wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=openDocumentationArg)
 
             if len(items) == 0:
                 wf.add_item(u"Unknown language abriviation", icon=workflow.ICON_WARNING)
@@ -178,15 +212,18 @@ def main(wsf):
                 wf.send_feedback()
                 return
 
-            jsonPath = os.path.join(workflowDataPath, "Dictionaries/"+currentMode["uniqueIdentifier"] + ".json")
-            results = parseDictsData.searchParsedJson(query, jsonPath)
+            tableName = currentMode["tableName"]
+            parseDictsData.connectToDatabase(databasePath)
+            results = parseDictsData.searchParsedJson(query, currentMode["identifier"], tableName)
             if len(results) > 1:
                 firstResult = [results[0]]
                 results = firstResult + wf.filter(query, results[1:], lambda x:x["original"])
 
             for a in results:
-                wf.add_item(a["original"], a["translation"],icon=currentMode["icon"])
+                argument = objToJsonString({"action":"copy", "args":{"none":a["translation"], "cmd":a["original"]}})
+                wf.add_item(a["original"], a["translation"],icon=currentMode["icon"], modifier_subtitles={"cmd":"Copy the word you searched for"}, arg=argument, valid=True)
             wf.send_feedback()
+
             return
 
 
@@ -202,8 +239,8 @@ def openTerminalAndStartParsing():
     scriptDir = os.path.abspath(os.path.dirname(__file__))
     script = os.path.join(scriptDir, "openTerminal.scpt")
 
-    settingsFolder = "\"%s\"" % os.path.dirname(createSettingsFile())
-    cmd = "python \"%s\" %s" % (os.path.join(scriptDir, "parseDictsData.py"), settingsFolder)
+    settingsFolder = "%s" % os.path.dirname(createSettingsFile())
+    cmd = "python \"%s\" \"%s\"" % (os.path.join(scriptDir, "parseDictsData.py"), settingsFolder)
 
     subprocess.call(['osascript', script, cmd])
 

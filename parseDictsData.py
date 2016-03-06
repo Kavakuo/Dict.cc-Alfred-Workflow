@@ -30,9 +30,79 @@
 
 
 import ujson
-import re, os, sys
+import re, os, sys, time
+from sqlalchemy import *
+from sqlalchemy.orm import sessionmaker, clear_mappers, mapper
+
+metadata = None
+currentTablename = ""
+readyForFirstCommit = False
+tableExists = False
+
+SQL_ENGINE = None
+session = None
 
 DEBUG = False
+
+
+class x:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
+class Dictionary(object):
+
+    def __init__(self, sf, ss, of, os):
+        self.searchFirstLang = sf
+        self.searchSecondLang = ss
+        self.orgFirstLang = of
+        self.orgSecondLang = os
+
+    def __repr__(self):
+        return "<Dict searches=[%s, %s] orgs=[%s, %s]" %(self.searchFirstLang, self.searchSecondLang, self.orgFirstLang, self.orgSecondLang)
+
+
+def get_table_object(tablename):
+    global metadata, currentTablename, readyForFirstCommit, tableExists
+    metadata = MetaData()
+    currentTablename = tablename
+    table_object = Table(tablename, metadata,
+                         Column('id', Integer, primary_key=True),
+                         Column('searchFirstLang', String, index=True),
+                         Column('searchSecondLang', String, index=True),
+                         Column('orgFirstLang', String),
+                         Column('orgSecondLang', String)
+                         )
+    clear_mappers()
+    mapper(Dictionary, table_object)
+    readyForFirstCommit = True
+    tableExists = table_object.exists(SQL_ENGINE)
+    return Dictionary
+
+def newDict(tablename, searchFirstLang, searchSecondLang, orgFirstLang, orgSecondLang):
+    if tablename != currentTablename:
+        if readyForFirstCommit:
+            sessionCommit()
+        get_table_object(tablename)
+
+    session.add(Dictionary(searchFirstLang.decode('utf-8'), searchSecondLang.decode('utf-8'), orgFirstLang.decode('utf-8'), orgSecondLang.decode('utf-8')))
+
+def sessionCommit():
+    metadata.create_all(SQL_ENGINE)
+    session.commit()
+
+
+def connectToDatabase(path):
+    global SQL_ENGINE, session
+    SQL_ENGINE = create_engine("sqlite:///"+path)
+    session = sessionmaker()(bind=SQL_ENGINE)
+
 
 def cli_progress_test(percent, bar_length=20):
     hashes = '#' * int(round(percent * bar_length))
@@ -43,20 +113,22 @@ def cli_progress_test(percent, bar_length=20):
 
 def main():
     if len(sys.argv) == 1:
-        print "Workflow Settings path is missing. Run this script with Alfred with"
-        print "dictcc wf:executeParsing"
+        print x.FAIL + "Workflow settings path is missing as argument. Run this script with Alfred with"
+        print x.OKBLUE + "dictcc wf:executeParsing" + x.ENDC
         sys.exit()
 
     dirName = sys.argv[1]
-    dictionaryDir = os.path.join(dirName, "Dictionaries")
-    if os.path.exists(dictionaryDir) is False:
-        os.mkdir(dictionaryDir)
+
+    connectToDatabase(os.path.join(dirName, "Dictionaries.sqlite"))
 
     settings = ujson.loads(open(os.path.join(dirName, "dictccSettings.json")).read())
 
+    printRemoveInfo = False
     for setting in settings:
         langOrder = setting["languageOrderInDictionaryFile"]
         identifiers = [langOrder[0]["identifier"], langOrder[1]["identifier"]]
+        tableName = identifiers[0] + "-" + identifiers[1]
+        get_table_object(tableName)
         identifiersUnique = [identifiers[0] + "-" + identifiers[1], identifiers[1] + "-" + identifiers[0]]
         direction = setting["supportedDirection"]
         both = True
@@ -65,30 +137,13 @@ def main():
             both = False
             firstLangOnly = bool((identifiers.index(direction)+1)%2)
 
-
-        firstLangFile = os.path.join(dictionaryDir, identifiersUnique[0]+".json")
-        seconLangFile = os.path.join(dictionaryDir, identifiersUnique[1]+".json")
-
-        if both:
-            if os.path.exists(firstLangFile) and os.path.exists(seconLangFile):
-                print "Parsed files for %s already exist" % " ".join(identifiersUnique)
-                continue
-        elif firstLangOnly:
-            if os.path.exists(firstLangFile):
-                print "Parsed file for %s already exist" % identifiersUnique[0]
-                continue
-        elif firstLangOnly is False:
-            if os.path.exists(firstLangFile):
-                print "Parsed file for %s already exist" % identifiersUnique[1]
-                continue
-
         path = setting["downloadedDictionaryFile"]
         if os.path.exists(path) is False:
             path = os.path.join(dirName, path)
             if os.path.exists(path) is False:
-                print "Downloaded dictionary file for %s doesn't exist. Configure dictccSettings.json correctly." % " ".join(identifiersUnique)
-                print "Download dictionary files from http://www1.dict.cc/translation_file_request.php"
-                print "Get help here https://github.com/Kavakuo/Dict.cc-Alfred-Workflow#dictcc-alfred-workflow"
+                print x.FAIL + "Downloaded dictionary file for %s doesn't exist. Configure dictccSettings.json correctly." % " ".join(identifiersUnique)
+                print "Download dictionary files from " + x.ENDC + "http://www1.dict.cc/translation_file_request.php"
+                print x.FAIL + "Get help here " + x.ENDC + "https://github.com/Kavakuo/Dict.cc-Alfred-Workflow#dictcc-alfred-workflow"
                 continue
 
         if both:
@@ -97,6 +152,10 @@ def main():
             modeName = identifiersUnique[0]
         else:
             modeName = identifiersUnique[1]
+
+        if tableExists:
+            print x.OKBLUE + "Dictionary for %s already exists." % modeName + x.ENDC
+            continue
 
         raw = open(path).read()
         raw = raw.splitlines()
@@ -110,22 +169,14 @@ def main():
 
         results = re.finditer("(.+?)\t",raw)
         totalCount = len(re.findall(".+?\t",raw))
-        de_en = {}
-        en_de = {}
-        # generated JSON structure:
-        # {
-        #   "[search without gender and additional info]": {
-        #       "org":         "[search with gender]",
-        #       "translation": "[translation]"
-        #   }
-        #
-        # }
 
         count = 0
-        temp = ""
-        tempSearch = ""
-        print "Start parsing " + modeName
+        print x.HEADER + "Start parsing " + modeName + x.ENDC
 
+        searchFirst = ""
+        searchSecond = ""
+        orgFirst = ""
+        orgSecond = ""
         cli_progress_test(0)
         for a in results:
             if count % 2 == 0:
@@ -136,9 +187,9 @@ def main():
                         searchString = searchString.replace(match.group(0), "")
                 searchString = searchString.strip()
 
-                temp = a.group(1) #german
-                tempSearch = searchString
-                de_en[searchString] = {"original":a.group(1), "translation":""}
+                searchFirst = searchString
+                orgFirst = a.group(1) #german
+
             else:
                 searchString = a.group(1)
                 replace = [re.finditer("\{.+?\}", a.group(1), flags=re.UNICODE), re.finditer("\[.+?\]", a.group(1), flags=re.UNICODE)]
@@ -146,9 +197,9 @@ def main():
                     for match in r:
                         searchString = searchString.replace(match.group(0), "")
                 searchString = searchString.strip()
-
-                de_en[tempSearch]["translation"] = a.group(1)
-                en_de[searchString] = {"original":a.group(1), "translation":temp}
+                searchSecond = searchString
+                orgSecond = a.group(1)
+                newDict(tableName,searchFirst, searchSecond, orgFirst, orgSecond)
 
             count += 1
             if count % 200 == 0:
@@ -157,60 +208,93 @@ def main():
         cli_progress_test(1)
         print " "
 
-        string = ujson.dumps(de_en)
-        f = open(firstLangFile, "w")
-        f.write(string)
-        f.close()
-
-        string = ujson.dumps(en_de)
-        f = open(seconLangFile, "w")
-        f.write(string)
-        f.close()
+        print x.OKBLUE + "Writing to database. This may take a while! The operation won't fail silently. So just be patient, please." + x.ENDC
+        sessionCommit()
 
         if both:
-            print "Dictionary files for %s were generated" % modeName
+            print x.OKGREEN + "Dictionary tables for %s were generated successfully" % modeName
         if firstLangOnly:
-            print "Dictionary file for %s was generated" % modeName
+            print x.OKGREEN + "Dictionary tables for %s was generated successfully" % modeName
 
-        print "Removing downloaded dictionary file to save diskspace..."
-        os.remove(path)
+        printRemoveInfo = True
+
+    if printRemoveInfo:
+        print x.OKGREEN + "You can remove the downloaded dictionary files now to save diskspace." + x.ENDC
 
 
 
-def searchParsedJson(query, jsonDictionary):
-    raw = open(jsonDictionary).read()
-    raw = ujson.loads(raw)
+def getNResultsOfQuery(N, query):
+    result = []
+    for a in range(N):
+        r = query.offset(a).first()
+        if r is not None:
+            result.append(r)
+        else:
+            break
+    return result
+
+def searchParsedJson(query, firstLangIdentifier, tablename):
+    get_table_object(tablename)
+    identifiers = tablename.split("-")
+    secondLang = bool(identifiers.index(firstLangIdentifier))
+
     search = query.lower()
-    search2 = search[0].upper() + search[1:]
+
     results = []
 
-    if raw.get(search):
-        results.append({"original":raw[search]["original"], "translation":raw[search]["translation"]})
-        raw.pop(search, None)
-    elif raw.get(search2):
-        results.append({"original": raw[search2]["original"], "translation": raw[search2]["translation"]})
-        raw.pop(search2, None)
+    if secondLang:
+        results += getNResultsOfQuery(30, session.query(Dictionary).filter(Dictionary.searchSecondLang.like(search)))
+        n = 30
+        if len(results) > 0:
+            n = 10
+        results += getNResultsOfQuery(n, session.query(Dictionary).filter(Dictionary.searchSecondLang.like("%" + search + "%")))
 
-    if len(results) > 0 and DEBUG:
-        print results[-1]
+    else:
+        results += getNResultsOfQuery(30, session.query(Dictionary).filter(Dictionary.searchFirstLang.like(search)))
+        n = 30
+        if len(results) > 0:
+            n = 10
+        results += getNResultsOfQuery(n, session.query(Dictionary).filter(Dictionary.searchFirstLang.like("%" + search + "%")))
 
-    if DEBUG:
-        print "search"
+
+    ids = []
+
+    realResults = []
+    for a in results:
+        if a.id in ids:
+            continue
+
+        ids.append(a.id)
+
+        if secondLang:
+            realResults.append({"original":a.orgSecondLang, "translation":a.orgFirstLang})
+        else:
+            realResults.append({"original": a.orgFirstLang, "translation": a.orgSecondLang})
+
+    return realResults
 
 
-    count = 0
-    for key in raw:
-        if count > 30:
-            break
-        if search in key.lower():
-            results.append({"original": raw[key]["original"], "translation": raw[key]["translation"]})
-            count += 1
-            if DEBUG:
-                print results[-1]
+def sqlTest():
+    import time
+    connectToDatabase("/Users/Philipp/Desktop/Scripts/AlfredDict/Dictionaries.sqlite")
 
-    return results
+    get_table_object("de-en")
+    print tableExists
+    now = time.time()
+    result = getNResultsOfQuery(30, session.query(Dictionary).filter(Dictionary.searchSecondLang.like("hallo")))
+    print "finished after %s " % str(time.time() - now)
+    now = time.time()
+
+
+    result = getNResultsOfQuery(10, session.query(Dictionary).filter(Dictionary.searchSecondLang.like("%hallo%")))
+    print "finished after %s " % str(time.time()-now)
+    print len(result)
+    #now = time.time()
+    #result = session.query(Dictionary).filter(Dictionary.searchFirstLang.like("%a%")).all()
+    #print "finished after %s " % str(time.time() - now)
 
 
 if __name__ == '__main__':
     DEBUG = True
     main()
+

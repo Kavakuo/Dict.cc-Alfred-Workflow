@@ -6,15 +6,45 @@
 	<string>de.nieting.DictCC</string>
 	<key>connections</key>
 	<dict>
-		<key>698B24DE-3A01-4E4F-AE9E-C62C5875EDD5</key>
+		<key>2D50572E-F9B3-4F2F-9A43-6863F1879279</key>
 		<array>
 			<dict>
 				<key>destinationuid</key>
-				<string>60CB1BBC-D013-48EE-89AA-8A73566912D2</string>
+				<string>D582FDD6-13C8-4212-A111-C3058F410018</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
 				<string></string>
+			</dict>
+		</array>
+		<key>5258B5E7-73A0-4543-979A-A43CE42D729A</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>D582FDD6-13C8-4212-A111-C3058F410018</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+			</dict>
+		</array>
+		<key>698B24DE-3A01-4E4F-AE9E-C62C5875EDD5</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>5258B5E7-73A0-4543-979A-A43CE42D729A</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>2D50572E-F9B3-4F2F-9A43-6863F1879279</string>
+				<key>modifiers</key>
+				<integer>1048576</integer>
+				<key>modifiersubtext</key>
+				<string>Copy the word you searched for</string>
 			</dict>
 		</array>
 	</dict>
@@ -28,6 +58,25 @@
 	<string>Dict.cc</string>
 	<key>objects</key>
 	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>0</integer>
+				<key>script</key>
+				<string>python actionHandler.py none "{query}"</string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>5258B5E7-73A0-4543-979A-A43CE42D729A</string>
+			<key>version</key>
+			<integer>0</integer>
+		</dict>
 		<dict>
 			<key>config</key>
 			<dict>
@@ -66,17 +115,34 @@
 		<dict>
 			<key>config</key>
 			<dict>
-				<key>plusspaces</key>
+				<key>autopaste</key>
 				<false/>
-				<key>url</key>
-				<string>https://github.com/Kavakuo/Dict.cc-Alfred-Workflow#dictcc-alfred-workflow</string>
-				<key>utf8</key>
-				<true/>
+				<key>clipboardtext</key>
+				<string>{query}</string>
 			</dict>
 			<key>type</key>
-			<string>alfred.workflow.action.openurl</string>
+			<string>alfred.workflow.output.clipboard</string>
 			<key>uid</key>
-			<string>60CB1BBC-D013-48EE-89AA-8A73566912D2</string>
+			<string>D582FDD6-13C8-4212-A111-C3058F410018</string>
+			<key>version</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>0</integer>
+				<key>script</key>
+				<string>python actionHandler.py cmd "{query}"</string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>2D50572E-F9B3-4F2F-9A43-6863F1879279</string>
 			<key>version</key>
 			<integer>0</integer>
 		</dict>
@@ -85,15 +151,25 @@
 	<string>https://github.com/Kavakuo/Dict.cc-Alfred-Workflow.git</string>
 	<key>uidata</key>
 	<dict>
-		<key>60CB1BBC-D013-48EE-89AA-8A73566912D2</key>
+		<key>2D50572E-F9B3-4F2F-9A43-6863F1879279</key>
 		<dict>
 			<key>ypos</key>
-			<real>10</real>
+			<real>230</real>
+		</dict>
+		<key>5258B5E7-73A0-4543-979A-A43CE42D729A</key>
+		<dict>
+			<key>ypos</key>
+			<real>50</real>
 		</dict>
 		<key>698B24DE-3A01-4E4F-AE9E-C62C5875EDD5</key>
 		<dict>
 			<key>ypos</key>
-			<real>10</real>
+			<real>140</real>
+		</dict>
+		<key>D582FDD6-13C8-4212-A111-C3058F410018</key>
+		<dict>
+			<key>ypos</key>
+			<real>160</real>
 		</dict>
 	</dict>
 	<key>webaddress</key>

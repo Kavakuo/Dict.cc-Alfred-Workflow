@@ -25,11 +25,11 @@ This Alfred workflow uses the offline translation databases provided by dict.cc.
 		"downloadedDictionaryFile": "[path to file]",
 		"languageOrderInDictionaryFile": [{
 			"identifier":"de",
-			"completeName":"German"
+			"completeName":"German",
 			"icon":"icons/icon.png"
 		},{
 			"identifier":"en",
-			"completeName":"English"
+			"completeName":"English",
 			"icon":"icons/icon.png"
 		}],
 		"supportedDirection":"both"

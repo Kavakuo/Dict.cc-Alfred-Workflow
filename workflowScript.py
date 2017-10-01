@@ -28,9 +28,11 @@
 
 import workflow, sys
 import parseDictsData, ujson, subprocess, os, re, shutil
+import time
 
+__version__ = '1.3'
+start = time.time()
 
-__version__ = '1.2'
 
 def objToJsonString(obj):
     stri = ujson.dumps(obj)
@@ -49,15 +51,15 @@ def createSettingsFile():
     return settingsPath
 
 
-
-
-
-
-
+def printTime(reset=False):
+    global start
+    print time.time() - start
+    if reset:
+        start = time.time()
 
 def main(wsf):
     continuing = True
-
+    
 
     if wf.update_available:
         # Download new version and tell Alfred to install it
@@ -95,23 +97,28 @@ def main(wsf):
         continuing = False
 
     if len(wf.args):
-        query = wf.args[0]
-        if len(query) > 0 and query[0] == u" ":
-            query = query[1:]
+        query = wf.args[0].strip()
         if query == u'':
             query = None
 
+    # query with Alfred: 
+    # de-en       Haus
+    # langModeId  query
+
+    # split langModeId and query 
     langModeId = query
     wantsToSearch = False
     if query and query.find(u" ") != -1:
-        langModeId = query[:query.find(u" ")]
-        query = query[query.find(u" ")+1:]
+        langModeId = query[:query.find(u" ")].strip()
+        query = query[query.find(u" ")+1:].strip()
         wantsToSearch = True
         if query == u'':
+            # no query exists
             query = None
             wantsToSearch = False
 
     if re.search("^\s?wf", str(langModeId)):
+        # magic argument is coming
         continuing = False
         wf.add_item(u"Open dictccSettings.json", autocomplete=u" wf:openSettings", icon=settingsPath, icontype=u"fileicon", arg=settingsPath, type=u'file')
         wf.add_item(u"Open settings folder", autocomplete=u" wf:folderSettings", icontype=u"filetype", icon=u"public.folder")
@@ -125,106 +132,118 @@ def main(wsf):
     shouldSearch = False
     currentMode = None
 
-    if continuing:
-        for a in settings:
-            langOrder = a["languageOrderInDictionaryFile"]
-            identifiers = [langOrder[0]["identifier"], langOrder[1]["identifier"]]
-            identifiersUnique = [identifiers[0] + u"-" + identifiers[1], identifiers[1] + u"-" + identifiers[0]]
-            langOrder[0]["uniqueIdentifier"] = identifiersUnique[0]
-            langOrder[1]["uniqueIdentifier"] = identifiersUnique[1]
+    if not continuing:
+        return
 
-            langOrder[0]["translationName"] = langOrder[0]["completeName"] + u" -> " + langOrder[1]["completeName"]
-            langOrder[1]["translationName"] = langOrder[1]["completeName"] + u" -> " + langOrder[0]["completeName"]
+    # parse settings file
+    for a in settings:
+        langOrder = a["languageOrderInDictionaryFile"]
+        identifiers = [langOrder[0]["identifier"], langOrder[1]["identifier"]]
+        identifiersUnique = [identifiers[0] + u"-" + identifiers[1], identifiers[1] + u"-" + identifiers[0]]
+        langOrder[0]["uniqueIdentifier"] = identifiersUnique[0]
+        langOrder[1]["uniqueIdentifier"] = identifiersUnique[1]
+        langOrder[0]["tableName"] = identifiersUnique[0].decode('utf-8')
+        langOrder[1]["tableName"] = identifiersUnique[0].decode('utf-8')
 
-            langOrder[0]["tableName"] = identifiers[0] + "-" + identifiers[1]
-            langOrder[1]["tableName"] = identifiers[0] + "-" + identifiers[1]
+        langOrder[0]["translationName"] = langOrder[0]["completeName"] + u" -> " + langOrder[1]["completeName"]
+        langOrder[1]["translationName"] = langOrder[1]["completeName"] + u" -> " + langOrder[0]["completeName"]
 
-            direction = a["supportedDirection"]
+        direction = a["supportedDirection"]
 
-            validModeIdentifier = False
+        # is the languageModeId supported?
+        validModeIdentifier = False
+        if direction == u"both":
+            if langModeId and langModeId in identifiersUnique:
+                validModeIdentifier = True
+        else:
+            index = identifiers.index(direction)
+            identifiersUnique.pop((index+1)%2)
+
+            if langModeId and langModeId in identifiersUnique:
+                validModeIdentifier = True
+
+        if validModeIdentifier:
+            # current language mode found, break
+            shouldSearch = True
+            items = []
+            currentMode = langOrder[identifiersUnique.index(langModeId)]
+
+            parseDictsData.get_table_object(currentMode["tableName"])
+            if parseDictsData.tableExists is False:
+                shouldSearch = False
+                items.append(currentMode)
+
+            break
+        else:
             if direction == u"both":
-                if langModeId and langModeId in identifiersUnique:
-                    validModeIdentifier = True
+                items += langOrder
             else:
-                index = identifiers.index(direction)
-                identifiersUnique.pop((index+1)%2)
+                items.append(langOrder[identifiers.index(direction)])
 
-                if langModeId and langModeId in identifiersUnique:
-                    validModeIdentifier = True
 
-            if validModeIdentifier:
-                shouldSearch = True
-                items = []
-                currentMode = langOrder[identifiersUnique.index(langModeId)]
 
-                parseDictsData.get_table_object(currentMode["tableName"])
-                if parseDictsData.tableExists is False:
-                    shouldSearch = False
-                    items.append(currentMode)
-                break
+    # process user input
+    if wantsToSearch and shouldSearch is False:
+        wf.add_item(u"Unknown language abriviation", icon=workflow.ICON_WARNING)
+        wf.send_feedback()
+        return
+
+    elif shouldSearch is False:
+        if langModeId:
+            # filter translation modes by langModeId 
+            def filterKeys(d):
+                return d["uniqueIdentifier"]
+
+            items = wf.filter(langModeId, items, filterKeys, match_on=workflow.MATCH_SUBSTRING ^ workflow.MATCH_STARTSWITH)
+
+        presentHelp = False
+        helpIdentifiers = []
+        for a in items:
+            title = a["translationName"]
+            identifier = a["uniqueIdentifier"]
+            parseDictsData.get_table_object(a["tableName"])
+            if parseDictsData.tableExists is False:
+                # table for 
+                helpIdentifiers.append(identifier)
+                presentHelp = True
             else:
-                if direction == u"both":
-                    items += langOrder
-                else:
-                    items.append(langOrder[identifiers.index(direction)])
+                # add langModeId to Alfred result
+                wf.add_item(title, identifier, autocomplete=u" " + identifier + u" ",icon=a["icon"])
 
+        if presentHelp:
+            # language is missing in database
+            for identifier in helpIdentifiers:
+                wf.add_item(u"Dictionary for " + identifier + u" is missing in database", u"You need to execute parseDictsData.py", icon=workflow.ICON_WARNING)
+            wf.add_item(u"Execute parseDictsData.py to generate the database", autocomplete=u" wf:executeParsing", icon=workflow.ICON_SETTINGS)
+            wf.add_item(u"Open settings folder", autocomplete=u" wf:folderSettings", icontype=u"filetype", icon=u"public.folder")
+            wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=openDocumentationArg)
 
-        if wantsToSearch and shouldSearch is False:
+        if len(items) == 0:
             wf.add_item(u"Unknown language abriviation", icon=workflow.ICON_WARNING)
+
+        wf.send_feedback()
+
+    elif shouldSearch:
+        if wantsToSearch is False:
+            wf.add_item(u"Search term is missing", icon=workflow.ICON_WARNING)
             wf.send_feedback()
             return
 
-        elif shouldSearch is False:
-            if langModeId:
-                def filterKeys(d):
-                    return d["uniqueIdentifier"]
+        # search for translation
+        tableName = currentMode["tableName"]
+        parseDictsData.connectToDatabase(databasePath)
+        results = parseDictsData.searchParsedJson(query, currentMode["identifier"], tableName)
+        if len(results) > 1:
+            firstResult = [results[0]]
+            results = firstResult + wf.filter(query, results[1:], lambda x:x["original"])
 
-                items = wf.filter(langModeId, items, filterKeys, match_on=workflow.MATCH_SUBSTRING ^ workflow.MATCH_STARTSWITH)
-
-            presentHelp = False
-            helpIdentifiers = []
-            for a in items:
-                title = a["translationName"]
-                identifier = a["uniqueIdentifier"]
-                parseDictsData.get_table_object(a["tableName"])
-                if parseDictsData.tableExists is False:
-                    helpIdentifiers.append(identifier)
-                    presentHelp = True
-                else:
-                    wf.add_item(title, identifier, autocomplete=u" " + identifier + u" ",icon=a["icon"])
-
-            if presentHelp:
-                for identifier in helpIdentifiers:
-                    wf.add_item(u"Dictionary for " + identifier + u" is missing in database", u"You need to execute parseDictsData.py", icon=workflow.ICON_WARNING)
-                wf.add_item(u"Execute parseDictsData.py to generate the database", autocomplete=u" wf:executeParsing", icon=workflow.ICON_SETTINGS)
-                wf.add_item(u"Open settings folder", autocomplete=u" wf:folderSettings", icontype=u"filetype", icon=u"public.folder")
-                wf.add_item(u"See the documentation", icon=workflow.ICON_INFO, valid=True, arg=openDocumentationArg)
-
-            if len(items) == 0:
-                wf.add_item(u"Unknown language abriviation", icon=workflow.ICON_WARNING)
-
-            wf.send_feedback()
-
-
-        elif shouldSearch:
-            if wantsToSearch is False:
-                wf.add_item(u"Search term is missing", icon=workflow.ICON_WARNING)
-                wf.send_feedback()
-                return
-
-            tableName = currentMode["tableName"]
-            parseDictsData.connectToDatabase(databasePath)
-            results = parseDictsData.searchParsedJson(query, currentMode["identifier"], tableName)
-            if len(results) > 1:
-                firstResult = [results[0]]
-                results = firstResult + wf.filter(query, results[1:], lambda x:x["original"])
-
-            for a in results:
-                argument = objToJsonString({"action":"copy", "args":{"none":a["translation"], "cmd":a["original"]}})
-                wf.add_item(a["original"], a["translation"],icon=currentMode["icon"], modifier_subtitles={"cmd":"Copy the word you searched for"}, arg=argument, valid=True)
-            wf.send_feedback()
-
-            return
+        for a in results:
+            argument = objToJsonString({"action":"copy", "args":{"none":a["translation"], "cmd":a["original"]}})
+            
+            wf.add_item(a["original"], a["translation"], icon=currentMode["icon"], modifier_subtitles={"cmd":"Copy the word you searched for"}, arg=argument, valid=True, uid=u"%s %s" % (a["original"], a["translation"]))
+        
+        wf.send_feedback()
+        return
 
 
 def openSettings():

@@ -29,7 +29,7 @@
 
 
 
-import ujson
+import ujson, workflow
 import re, os, sys, time
 from sqlalchemy import *
 from sqlalchemy.orm import sessionmaker, clear_mappers, mapper
@@ -43,6 +43,15 @@ SQL_ENGINE = None
 session = None
 
 DEBUG = False
+
+
+def measureTime(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        a = func(*args, **kwargs)
+        workflow.Workflow().logger.debug(func.__name__ + ": " + str(time.time() - start))
+        return a
+    return wrapper
 
 
 class x:
@@ -68,6 +77,7 @@ class Dictionary(object):
         return "<Dict searches=[%s, %s] orgs=[%s, %s]" %(self.searchFirstLang, self.searchSecondLang, self.orgFirstLang, self.orgSecondLang)
 
 
+@measureTime
 def get_table_object(tablename):
     global metadata, currentTablename, readyForFirstCommit, tableExists
     metadata = MetaData()
@@ -85,6 +95,7 @@ def get_table_object(tablename):
     tableExists = table_object.exists(SQL_ENGINE)
     return Dictionary
 
+@measureTime
 def newDict(tablename, searchFirstLang, searchSecondLang, orgFirstLang, orgSecondLang):
     if tablename != currentTablename:
         if readyForFirstCommit:
@@ -93,11 +104,12 @@ def newDict(tablename, searchFirstLang, searchSecondLang, orgFirstLang, orgSecon
 
     session.add(Dictionary(searchFirstLang.decode('utf-8'), searchSecondLang.decode('utf-8'), orgFirstLang.decode('utf-8'), orgSecondLang.decode('utf-8')))
 
+@measureTime
 def sessionCommit():
     metadata.create_all(SQL_ENGINE)
     session.commit()
 
-
+@measureTime
 def connectToDatabase(path):
     global SQL_ENGINE, session
     SQL_ENGINE = create_engine("sqlite:///"+path)
@@ -222,17 +234,18 @@ def main():
         print x.OKGREEN + "You can remove the downloaded dictionary files now to save diskspace." + x.ENDC
 
 
-
+@measureTime
 def getNResultsOfQuery(N, query):
     result = []
-    for a in range(N):
-        r = query.offset(a).first()
-        if r is not None:
-            result.append(r)
-        else:
+    count = 0
+    for r in query:
+        count += 1
+        result.append(r)
+        if count > N:
             break
     return result
 
+@measureTime
 def searchParsedJson(query, firstLangIdentifier, tablename):
     get_table_object(tablename)
     identifiers = tablename.split("-")

@@ -30,7 +30,7 @@ import workflow, sys
 import parseDictsData, ujson, subprocess, os, re, shutil
 import time
 
-__version__ = '1.3'
+__version__ = '1.3.1'
 start = time.time()
 
 

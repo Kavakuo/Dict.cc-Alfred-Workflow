@@ -35,7 +35,6 @@ def main():
 
     elif json["action"] == "copy":
         sys.stdout.write(args[modifier].encode("utf-8"))
-        sys.exit()
 
 
 if __name__ == '__main__':
